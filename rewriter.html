@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chrome Built-in AI Rewriter</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 900px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        min-height: 100vh;
+      }
+
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .status {
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .status.error {
+        background-color: #fee;
+        color: #c33;
+        border: 1px solid #fcc;
+      }
+
+      .status.success {
+        background-color: #efe;
+        color: #3c3;
+        border: 1px solid #cfc;
+      }
+
+      .status.warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        color: #555;
+        font-weight: 600;
+      }
+
+      textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+        font-family: inherit;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: #f093fb;
+      }
+
+      select,
+      input {
+        width: 100%;
+        padding: 10px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+        box-sizing: border-box;
+      }
+
+      input {
+        cursor: text;
+      }
+
+      .options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 15px;
+      }
+
+      button {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+        margin-top: 10px;
+      }
+
+      button:hover {
+        transform: translateY(-2px);
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .result {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 5px;
+        border-left: 4px solid #f093fb;
+      }
+
+      .result h3 {
+        margin-top: 0;
+        color: #f5576c;
+      }
+
+      .loading {
+        text-align: center;
+        color: #f5576c;
+        font-style: italic;
+      }
+
+      .helper-text {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+      }
+      .response-time {
+        font-size: 11px;
+        color: #888;
+        margin-top: 10px;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>♻️ Chrome Built-in AI Rewriter</h1>
+
+      <div id="status" class="status" style="display: none"></div>
+
+      <div class="form-group">
+        <label for="sharedContext">Shared Context (Optional):</label>
+        <input
+          type="text"
+          id="sharedContext"
+          placeholder="E.g., This is an email to acquaintances about an upcoming event"
+        />
+        <div class="helper-text">
+          Provide context to help the AI rewrite better
+        </div>
+      </div>
+
+      <div class="options-grid">
+        <div class="form-group">
+          <label for="outputLanguage">Output Language:</label>
+          <select id="outputLanguage">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="ja">Japanese</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="tone">Tone:</label>
+          <select id="tone">
+            <option value="as-is">As Is</option>
+            <option value="more-formal">More Formal</option>
+            <option value="more-casual">More Casual</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="format">Format:</label>
+          <select id="format">
+            <option value="as-is">As Is</option>
+            <option value="markdown">Markdown</option>
+            <option value="plain-text">Plain Text</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="length">Length:</label>
+          <select id="length">
+            <option value="as-is">As Is</option>
+            <option value="shorter">Shorter</option>
+            <option value="longer">Longer</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="inputText">Text to Rewrite:</label>
+        <textarea
+          id="inputText"
+          rows="6"
+          placeholder="Enter text you want to rewrite..."
+        >
+Hey! We're having a BBQ at my place this Saturday around 5pm. Would be great if you could come! Let me know if you can make it. Thanks!</textarea
+        >
+        <div class="helper-text">
+          Enter the text you want to rewrite with different style or tone
+        </div>
+      </div>
+
+      <button id="rewriteBtn" onclick="rewriteContent()">
+        Rewrite Content
+      </button>
+
+      <div id="result" class="result" style="display: none">
+        <h3>Rewritten Content:</h3>
+        <p id="rewrittenText"></p>
+      </div>
+    </div>
+
+    <script>
+      // Check if Rewriter API is available
+      async function checkAvailability() {
+        const statusDiv = document.getElementById("status");
+
+        // Check if Rewriter API exists
+        if (!("Rewriter" in self)) {
+          statusDiv.textContent =
+            "❌ Rewriter API is not available. Please use Chrome 137+ and enable chrome://flags/#rewriter-api-for-gemini-nano";
+          statusDiv.className = "status error";
+          statusDiv.style.display = "block";
+          document.getElementById("rewriteBtn").disabled = true;
+          return false;
+        }
+
+        // Check availability status
+        try {
+          const available = await Rewriter.availability();
+
+          if (available === "no") {
+            statusDiv.textContent =
+              "❌ Rewriter API is unavailable on your device. Check hardware requirements.";
+            statusDiv.className = "status error";
+            statusDiv.style.display = "block";
+            document.getElementById("rewriteBtn").disabled = true;
+            return false;
+          } else if (available === "readily") {
+            statusDiv.textContent = "✓ Rewriter API is ready to use!";
+            statusDiv.className = "status success";
+            statusDiv.style.display = "block";
+            return true;
+          } else if (available === "after-download") {
+            statusDiv.textContent =
+              "⚠️ Rewriter API available after model download. First use may take time.";
+            statusDiv.className = "status warning";
+            statusDiv.style.display = "block";
+            return true;
+          }
+        } catch (error) {
+          statusDiv.textContent =
+            "❌ Error checking Rewriter API availability: " + error.message;
+          statusDiv.className = "status error";
+          statusDiv.style.display = "block";
+          document.getElementById("rewriteBtn").disabled = true;
+          return false;
+        }
+      }
+
+      async function rewriteContent() {
+        const sharedContext = document.getElementById("sharedContext").value;
+        const outputLanguage = document.getElementById("outputLanguage").value;
+        const tone = document.getElementById("tone").value;
+        const format = document.getElementById("format").value;
+        const length = document.getElementById("length").value;
+        const inputText = document.getElementById("inputText").value;
+        const resultDiv = document.getElementById("result");
+        const rewrittenTextP = document.getElementById("rewrittenText");
+        const rewriteBtn = document.getElementById("rewriteBtn");
+
+        if (!inputText.trim()) {
+          alert("Please enter text to rewrite");
+          return;
+        }
+
+        try {
+          // Disable button and show loading
+          rewriteBtn.disabled = true;
+          resultDiv.style.display = "block";
+          rewrittenTextP.innerHTML =
+            '<span class="loading">Creating rewriter...</span>';
+
+          // Prepare options with outputLanguage
+          const options = {
+            sharedContext: sharedContext.trim() || undefined,
+            outputLanguage: outputLanguage,
+            tone: tone,
+            format: format,
+            length: length,
+            monitor(m) {
+              m.addEventListener("downloadprogress", (e) => {
+                const percent = Math.round(e.loaded * 100);
+                rewrittenTextP.innerHTML = `<span class="loading">Downloading model: ${percent}%</span>`;
+              });
+            },
+          };
+
+          // Create rewriter
+          const rewriter = await Rewriter.create(options);
+
+          rewrittenTextP.innerHTML =
+            '<span class="loading">Rewriting content...</span>';
+
+          // Start timer
+          const startTime = performance.now();
+
+          // Rewrite content
+          const result = await rewriter.rewrite(inputText);
+
+          // End timer and calculate duration
+          const endTime = performance.now();
+          const duration = Math.round(endTime - startTime);
+
+          // Display result (preserve formatting for markdown)
+          if (format === "markdown") {
+            rewrittenTextP.innerHTML = result.replace(/\n/g, "<br>");
+          } else {
+            rewrittenTextP.textContent = result;
+          }
+
+          // Add response time
+          const timeDiv = document.createElement("div");
+          timeDiv.className = "response-time";
+          timeDiv.textContent = `(Responded in ${duration}ms)`;
+          rewrittenTextP.appendChild(timeDiv);
+
+          // Cleanup
+          rewriter.destroy();
+        } catch (error) {
+          console.error("Rewrite error:", error);
+          rewrittenTextP.innerHTML = `<span style="color: #c33;">Error: ${error.message}</span>`;
+        } finally {
+          rewriteBtn.disabled = false;
+        }
+      }
+
+      // Check availability on page load
+      window.addEventListener("load", checkAvailability);
+    </script>
+  </body>
+</html>

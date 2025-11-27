@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chrome Built-in AI Writer</title>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Chrome Built-in AI Writer</h1>
+
+      <div id="status" class="status" style="display: none"></div>
+
+      <div class="form-group">
+        <label for="sharedContext">Shared Context (Optional):</label>
+        <input
+          type="text"
+          id="sharedContext"
+          placeholder="E.g., This is an email to acquaintances about an upcoming event"
+        />
+        <div class="helper-text">
+          Provide context to help the AI generate better content
+        </div>
+      </div>
+
+      <div class="options-grid">
+        <div class="form-group">
+          <label for="outputLanguage">Output Language:</label>
+          <select id="outputLanguage">
+            <option value="en">English</option>
+            <option value="es">Spanish</option>
+            <option value="ja">Japanese</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="tone">Tone:</label>
+          <select id="tone">
+            <option value="neutral">Neutral</option>
+            <option value="formal">Formal</option>
+            <option value="casual">Casual</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="format">Format:</label>
+          <select id="format">
+            <option value="markdown">Markdown</option>
+            <option value="plain-text">Plain Text</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="length">Length:</label>
+          <select id="length">
+            <option value="short">Short</option>
+            <option value="medium">Medium</option>
+            <option value="long">Long</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="prompt">Writing Prompt:</label>
+        <textarea
+          id="prompt"
+          rows="10"
+          cols="80"
+          placeholder="Enter what you want to write about..."
+        >
+Write a friendly invitation to a summer barbecue party</textarea
+        >
+        <div class="helper-text">
+          Describe what content you want the AI to write
+        </div>
+      </div>
+
+      <button id="writeBtn" onclick="generateContent()">
+        Generate Content
+      </button>
+
+      <div id="result" class="result" style="display: none">
+        <h3>Generated Content:</h3>
+        <p id="generatedText"></p>
+      </div>
+    </div>
+
+    <script>
+      // Check if Writer API is available
+      async function checkAvailability() {
+        const statusDiv = document.getElementById("status");
+
+        // Check if Writer API exists
+        if (!("Writer" in self)) {
+          statusDiv.textContent =
+            "❌ Writer API is not available. Please use Chrome 137+ and enable chrome://flags/#writer-api-for-gemini-nano";
+          statusDiv.className = "status error";
+          statusDiv.style.display = "block";
+          document.getElementById("writeBtn").disabled = true;
+          return false;
+        }
+
+        // Check availability status
+        try {
+          const available = await Writer.availability();
+
+          if (available === "no") {
+            statusDiv.textContent =
+              "❌ Writer API is unavailable on your device. Check hardware requirements.";
+            statusDiv.className = "status error";
+            statusDiv.style.display = "block";
+            document.getElementById("writeBtn").disabled = true;
+            return false;
+          } else if (available === "readily") {
+            statusDiv.textContent = "✓ Writer API is ready to use!";
+            statusDiv.className = "status success";
+            statusDiv.style.display = "block";
+            return true;
+          } else if (available === "after-download") {
+            statusDiv.textContent =
+              "⚠️ Writer API available after model download. First use may take time.";
+            statusDiv.className = "status warning";
+            statusDiv.style.display = "block";
+            return true;
+          }
+        } catch (error) {
+          statusDiv.textContent =
+            "❌ Error checking Writer API availability: " + error.message;
+          statusDiv.className = "status error";
+          statusDiv.style.display = "block";
+          document.getElementById("writeBtn").disabled = true;
+          return false;
+        }
+      }
+
+      async function generateContent() {
+        const sharedContext = document.getElementById("sharedContext").value;
+        const outputLanguage = document.getElementById("outputLanguage").value;
+        const tone = document.getElementById("tone").value;
+        const format = document.getElementById("format").value;
+        const length = document.getElementById("length").value;
+        const prompt = document.getElementById("prompt").value;
+        const resultDiv = document.getElementById("result");
+        const generatedTextP = document.getElementById("generatedText");
+        const writeBtn = document.getElementById("writeBtn");
+
+        if (!prompt.trim()) {
+          alert("Please enter a writing prompt");
+          return;
+        }
+
+        try {
+          // Disable button and show loading
+          writeBtn.disabled = true;
+          resultDiv.style.display = "block";
+          generatedTextP.innerHTML =
+            '<span class="loading">Checking availability...</span>';
+
+          // Prepare options with outputLanguage - MUST include outputLanguage
+          const options = {
+            sharedContext: sharedContext.trim() || undefined,
+            outputLanguage: outputLanguage, // Required parameter
+            tone: tone,
+            format: format,
+            length: length,
+          };
+
+          // Create writer with monitor for download progress
+          generatedTextP.innerHTML =
+            '<span class="loading">Creating writer...</span>';
+
+          const writer = await Writer.create({
+            sharedContext: options.sharedContext,
+            outputLanguage: options.outputLanguage,
+            tone: options.tone,
+            format: options.format,
+            length: options.length,
+            monitor(m) {
+              m.addEventListener("downloadprogress", (e) => {
+                const percent = Math.round(e.loaded * 100);
+                generatedTextP.innerHTML = `<span class="loading">Downloading model: ${percent}%</span>`;
+              });
+            },
+          });
+
+          generatedTextP.innerHTML =
+            '<span class="loading">Generating content...</span>';
+
+          // Start timer
+          const startTime = performance.now();
+
+          // Generate content
+          const result = await writer.write(prompt);
+
+          // End timer and calculate duration
+          const endTime = performance.now();
+          const duration = Math.round(endTime - startTime);
+
+          // Display result (preserve formatting for markdown)
+          if (format === "markdown") {
+            generatedTextP.innerHTML = result.replace(/\n/g, "<br>");
+          } else {
+            generatedTextP.textContent = result;
+          }
+
+          // Add response time
+          const timeDiv = document.createElement("div");
+          timeDiv.className = "response-time";
+          timeDiv.textContent = `(Responded in ${duration}ms)`;
+          generatedTextP.appendChild(timeDiv);
+
+          // Cleanup
+          writer.destroy();
+        } catch (error) {
+          console.error("Generation error:", error);
+          generatedTextP.innerHTML = `<span style="color: #c33;">Error: ${error.message}</span>`;
+        } finally {
+          writeBtn.disabled = false;
+        }
+      }
+
+      // Check availability on page load
+      window.addEventListener("load", checkAvailability);
+    </script>
+  </body>
+</html>

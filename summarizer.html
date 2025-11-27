@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>AI Summarizer</title>
+  </head>
+  <body>
+    <h1>Text Summarizer</h1>
+
+    <form id="summaryForm">
+      <label for="input-text">Enter text to summarize:</label>
+      <br />
+      <textarea id="input-text" rows="30" cols="120" required></textarea>
+      <br />
+      <label for="summary-type">Summary type:</label>
+      <select id="summary-type">
+        <option value="tldr">TL;DR</option>
+        <option value="key-points">Key Points</option>
+        <option value="teaser">Teaser</option>
+        <option value="headline">Headline</option>
+      </select>
+
+      <label for="summary-length">Length:</label>
+      <select id="summary-length">
+        <option value="short">Short</option>
+        <option value="medium">Medium</option>
+        <option value="long">Long</option>
+      </select>
+
+      <button type="submit">Summarize</button>
+    </form>
+
+    <h2>Summary:</h2>
+    <div id="output"></div>
+
+    <script>
+      const form = document.getElementById("summaryForm");
+      const output = document.getElementById("output");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const text = document.getElementById("input-text").value;
+        const type = document.getElementById("summary-type").value;
+        const length = document.getElementById("summary-length").value;
+
+        const options = {
+          type: type,
+          //format: "markdown",
+          length: length,
+          outputLanguage: "en",
+          monitor(m) {
+            m.addEventListener("downloadprogress", (e) => {
+              console.log(`Downloaded ${e.loaded * 100}%`);
+            });
+          },
+        };
+
+        if (!("Summarizer" in self)) {
+          output.textContent = "Summarizer API not supported";
+          return;
+        }
+
+        output.textContent = "Generating summary...";
+
+        try {
+          const summarizer = await Summarizer.create(options);
+
+          // Start timer
+          const startTime = performance.now();
+
+          const summary = await summarizer.summarize(text);
+
+          // End timer and calculate duration
+          const endTime = performance.now();
+          const duration = Math.round(endTime - startTime);
+
+          output.textContent = summary;
+
+          // Add response time
+          const timeDiv = document.createElement("div");
+          timeDiv.className = "response-time";
+          timeDiv.textContent = `(Responded in ${duration}ms)`;
+          output.appendChild(timeDiv);
+        } catch (error) {
+          output.textContent = `Error: ${error.message}`;
+        }
+      });
+    </script>
+  </body>
+</html>

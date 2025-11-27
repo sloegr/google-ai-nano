@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chrome Built-in AI Chatbot</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        max-width: 900px;
+        margin: 50px auto;
+        padding: 20px;
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        min-height: 100vh;
+      }
+
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        height: 700px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      .status {
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        text-align: center;
+      }
+
+      .status.error {
+        background-color: #fee;
+        color: #c33;
+        border: 1px solid #fcc;
+      }
+
+      .status.success {
+        background-color: #efe;
+        color: #3c3;
+        border: 1px solid #cfc;
+      }
+
+      .status.warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
+
+      .config-panel {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 5px;
+      }
+
+      .config-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .config-group label {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 5px;
+        font-weight: 600;
+      }
+
+      .config-group input {
+        padding: 8px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+
+      .config-group textarea {
+        padding: 8px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 12px;
+        resize: vertical;
+        font-family: inherit;
+      }
+
+      .chat-container {
+        flex: 1;
+        overflow-y: auto;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background: #fafafa;
+      }
+
+      .message {
+        margin-bottom: 15px;
+        padding: 10px 15px;
+        border-radius: 10px;
+        max-width: 80%;
+        word-wrap: break-word;
+      }
+
+      .message.user {
+        background: #4facfe;
+        color: white;
+        margin-left: auto;
+        text-align: right;
+      }
+
+      .message.assistant {
+        background: white;
+        border: 1px solid #ddd;
+        margin-right: auto;
+      }
+      .response-time {
+        font-size: 11px;
+        color: #888;
+        margin-top: 5px;
+        font-style: italic;
+      }
+      .message.system {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        font-style: italic;
+        font-size: 13px;
+        max-width: 100%;
+        text-align: center;
+      }
+
+      .input-container {
+        display: flex;
+        gap: 10px;
+      }
+
+      #userInput {
+        flex: 1;
+        padding: 12px;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+        font-family: inherit;
+      }
+
+      button {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+
+      button:hover {
+        transform: translateY(-2px);
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .button-group button {
+        flex: 1;
+      }
+
+      .helper-text {
+        font-size: 11px;
+        color: #666;
+        margin-top: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🤖 Chrome AI Chatbot (Prompt API)</h1>
+
+      <div id="status" class="status" style="display: none"></div>
+
+      <div class="config-panel">
+        <div class="config-group">
+          <label for="systemPrompt">System Prompt (Optional):</label>
+          <textarea
+            id="systemPrompt"
+            rows="2"
+            placeholder="E.g., You are a helpful assistant..."
+          >
+You are a helpful AI assistant.</textarea
+          >
+          <div class="helper-text">Set the AI's behavior and personality</div>
+        </div>
+        <div class="config-group">
+          <label for="temperature"
+            >Temperature: <span id="tempValue">1.0</span></label
+          >
+          <input
+            type="range"
+            id="temperature"
+            min="0"
+            max="2"
+            step="0.1"
+            value="1.0"
+          />
+          <div class="helper-text">
+            Higher = more creative, Lower = more focused
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-container" id="chatContainer">
+        <div class="message system">Checking API availability...</div>
+      </div>
+
+      <div class="input-container">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Type your message..."
+          disabled
+        />
+        <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+      </div>
+
+      <div class="button-group">
+        <button id="initBtn" onclick="initializeSession()" disabled>
+          Initialize Session
+        </button>
+        <button id="resetBtn" onclick="resetSession()" disabled>
+          New Session
+        </button>
+        <button id="clearBtn" onclick="clearChat()" disabled>Clear Chat</button>
+      </div>
+    </div>
+
+    <script>
+      let session = null;
+      let conversationHistory = [];
+      let modelParams = null;
+
+      // Update temperature display
+      document.getElementById("temperature").addEventListener("input", (e) => {
+        document.getElementById("tempValue").textContent = e.target.value;
+      });
+
+      // Allow Enter key to send message
+      document.getElementById("userInput").addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // Check if Prompt API is available
+      async function checkAvailability() {
+        const statusDiv = document.getElementById("status");
+        const chatContainer = document.getElementById("chatContainer");
+
+        // Check if LanguageModel exists
+        if (!("LanguageModel" in self)) {
+          statusDiv.textContent =
+            "❌ Prompt API is not available. Please use Chrome 138+ and enable chrome://flags/#prompt-api-for-gemini-nano";
+          statusDiv.className = "status error";
+          statusDiv.style.display = "block";
+          chatContainer.innerHTML =
+            '<div class="message system">Prompt API not available on this browser.</div>';
+          return false;
+        }
+
+        try {
+          chatContainer.innerHTML =
+            '<div class="message system">Checking model availability...</div>';
+
+          // Get model parameters first
+          modelParams = await LanguageModel.params();
+          console.log("Model params:", modelParams);
+
+          // Check availability
+          const available = await LanguageModel.availability();
+          console.log("Availability:", available);
+
+          if (available === "unavailable") {
+            statusDiv.textContent =
+              "❌ Prompt API is unavailable on your device. Check hardware requirements.";
+            statusDiv.className = "status error";
+            statusDiv.style.display = "block";
+            chatContainer.innerHTML =
+              '<div class="message system">Model unavailable on this device.</div>';
+            return false;
+          } else if (available === "available") {
+            statusDiv.textContent =
+              '✓ Prompt API is ready! Click "Initialize Session" to start.';
+            statusDiv.className = "status success";
+            statusDiv.style.display = "block";
+            chatContainer.innerHTML =
+              '<div class="message system">Click "Initialize Session" button below to start chatting.</div>';
+
+            // Enable the initialize button
+            document.getElementById("initBtn").disabled = false;
+            return true;
+          } else if (
+            available === "downloadable" ||
+            available === "downloading"
+          ) {
+            statusDiv.textContent =
+              '⚠️ Model needs to be downloaded. Click "Initialize Session" to download and start.';
+            statusDiv.className = "status warning";
+            statusDiv.style.display = "block";
+            chatContainer.innerHTML =
+              '<div class="message system">Model needs download. Click "Initialize Session" to proceed (requires user action).</div>';
+
+            // Enable the initialize button
+            document.getElementById("initBtn").disabled = false;
+            return true;
+          }
+        } catch (error) {
+          console.error("Availability check error:", error);
+          statusDiv.textContent = "❌ Error: " + error.message;
+          statusDiv.className = "status error";
+          statusDiv.style.display = "block";
+          chatContainer.innerHTML =
+            '<div class="message system">Error checking availability.</div>';
+          return false;
+        }
+      }
+
+      async function initializeSession() {
+        // This function is called by user click, so we have a user gesture
+        document.getElementById("initBtn").disabled = true;
+        await createSession();
+
+        // Hide the init button after successful creation
+        if (session) {
+          document.getElementById("initBtn").style.display = "none";
+        }
+      }
+
+      async function createSession() {
+        const chatContainer = document.getElementById("chatContainer");
+        const statusDiv = document.getElementById("status");
+
+        try {
+          const systemPrompt = document
+            .getElementById("systemPrompt")
+            .value.trim();
+          const temperature = parseFloat(
+            document.getElementById("temperature").value
+          );
+
+          if (!modelParams) {
+            modelParams = await LanguageModel.params();
+          }
+
+          // Fix topK: if defaultTopK is 0, use 3 as fallback
+          const topKValue =
+            modelParams.defaultTopK > 0 ? modelParams.defaultTopK : 3;
+
+          const options = {
+            temperature: temperature,
+            topK: topKValue,
+            expectedOutputs: [{ type: "text", languages: ["en"] }],
+          };
+
+          // Add system prompt if provided
+          if (systemPrompt) {
+            options.systemPrompt = systemPrompt;
+            options.expectedInputs = [{ type: "text", languages: ["en"] }];
+          }
+
+          // Add download monitor
+          options.monitor = (m) => {
+            m.addEventListener("downloadprogress", (e) => {
+              const percent = Math.round(e.loaded * 100);
+              statusDiv.textContent = `⚠️ Downloading model: ${percent}%`;
+              chatContainer.innerHTML = `<div class="message system">Downloading model: ${percent}%</div>`;
+            });
+          };
+
+          console.log("Creating session with options:", options);
+
+          // Destroy old session if exists
+          if (session) {
+            session.destroy();
+          }
+
+          // Create new session
+          session = await LanguageModel.create(options);
+
+          console.log("Session created successfully");
+          statusDiv.textContent = "✓ Session ready! Start chatting below.";
+          statusDiv.className = "status success";
+          chatContainer.innerHTML =
+            '<div class="message system">Session ready! Start chatting below.</div>';
+
+          // Enable inputs
+          document.getElementById("userInput").disabled = false;
+          document.getElementById("sendBtn").disabled = false;
+          document.getElementById("resetBtn").disabled = false;
+          document.getElementById("clearBtn").disabled = false;
+          document.getElementById("userInput").focus();
+        } catch (error) {
+          console.error("Error creating session:", error);
+          statusDiv.textContent =
+            "❌ Session creation failed: " + error.message;
+          statusDiv.className = "status error";
+          chatContainer.innerHTML =
+            '<div class="message system">Error: ' + error.message + "</div>";
+        }
+      }
+
+      async function sendMessage() {
+        const input = document.getElementById("userInput");
+        const message = input.value.trim();
+
+        if (!message) {
+          alert("Please enter a message");
+          return;
+        }
+
+        if (!session) {
+          alert(
+            "Session not ready. Please wait for initialization to complete."
+          );
+          return;
+        }
+
+        // Disable input while processing
+        input.disabled = true;
+        document.getElementById("sendBtn").disabled = true;
+
+        // Add user message to chat
+        addMessage("user", message);
+        input.value = "";
+
+        // Add thinking indicator
+        const thinkingId = addMessage("assistant", "💭 Thinking...");
+
+        try {
+          const startTime = performance.now();
+          // Get response from AI (maintains conversation context)
+          const response = await session.prompt(message);
+
+          const endTime = performance.now();
+          const duration = endTime - startTime;
+
+          // Remove thinking indicator and add actual response
+          removeMessage(thinkingId);
+          addMessage("assistant", response, duration);
+
+          // Store in conversation history
+          conversationHistory.push(
+            { role: "user", content: message },
+            { role: "assistant", content: response }
+          );
+        } catch (error) {
+          console.error("Error getting response:", error);
+          removeMessage(thinkingId);
+          addMessage("system", "Error: " + error.message);
+        } finally {
+          input.disabled = false;
+          document.getElementById("sendBtn").disabled = false;
+          input.focus();
+        }
+      }
+
+      function addMessage(role, content, duration) {
+        const chatContainer = document.getElementById("chatContainer");
+        const messageDiv = document.createElement("div");
+        const messageId = "msg-" + Date.now() + "-" + Math.random();
+
+        messageDiv.id = messageId;
+        messageDiv.className = `message ${role}`;
+        messageDiv.textContent = content;
+
+        // Add the response time if provided for the assistant's final message
+        if (role === "assistant" && duration !== null) {
+          const timeDiv = document.createElement("div");
+          timeDiv.className = "response-time";
+          timeDiv.textContent = `(Responded in ${duration}ms)`;
+          messageDiv.appendChild(timeDiv);
+        }
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        return messageId;
+      }
+
+      function removeMessage(messageId) {
+        const message = document.getElementById(messageId);
+        if (message) {
+          message.remove();
+        }
+      }
+
+      async function resetSession() {
+        if (
+          confirm(
+            "Start a new session? This will clear the conversation context."
+          )
+        ) {
+          document.getElementById("userInput").disabled = true;
+          document.getElementById("sendBtn").disabled = true;
+          await createSession();
+          conversationHistory = [];
+          addMessage("system", "New session started with updated settings!");
+        }
+      }
+
+      function clearChat() {
+        if (
+          confirm("Clear the chat display? (Session context will be preserved)")
+        ) {
+          const chatContainer = document.getElementById("chatContainer");
+          chatContainer.innerHTML =
+            '<div class="message system">Chat cleared. Session context maintained.</div>';
+        }
+      }
+
+      // Initialize on page load
+      window.addEventListener("load", async () => {
+        await checkAvailability();
+      });
+
+      // Cleanup on page unload
+      window.addEventListener("beforeunload", () => {
+        if (session) {
+          session.destroy();
+        }
+      });
+    </script>
+  </body>
+</html>
